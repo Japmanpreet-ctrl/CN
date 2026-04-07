@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Exponential Backoff Simulation</title>
+  <style>
+    :root {
+      --bg: #06111f;
+      --bg-soft: #0d1b2e;
+      --panel: rgba(255, 255, 255, 0.92);
+      --panel-soft: #f6fbff;
+      --border: #d8e4ef;
+      --text: #0f1c2b;
+      --muted: #587087;
+      --white: #eaf4ff;
+      --cyan: #30d3ff;
+      --green: #22c55e;
+      --red: #ef4444;
+      --orange: #f97316;
+      --purple: #8b5cf6;
+      --blue: #2563eb;
+      --line: #1f2937;
+      --shadow: 0 28px 80px rgba(2, 6, 23, 0.2);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, "Segoe UI", sans-serif;
+      color: var(--white);
+      background:
+        radial-gradient(circle at top, rgba(48, 211, 255, 0.15), transparent 22%),
+        radial-gradient(circle at 82% 16%, rgba(34, 197, 94, 0.12), transparent 18%),
+        linear-gradient(180deg, #05101d 0%, #0d1a2d 38%, #eff6ff 38%, #eaf3ff 100%);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .shell {
+      width: min(1200px, calc(100vw - 28px));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      padding-top: 18px;
+    }
+
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 16px 18px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 28px;
+      background: rgba(5, 12, 22, 0.72);
+      backdrop-filter: blur(18px);
+      box-shadow: var(--shadow);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-mark {
+      width: 46px;
+      height: 46px;
+      display: grid;
+      place-items: center;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--cyan), #66e6a2);
+      color: #08111d;
+      font-weight: 800;
+    }
+
+    .brand small {
+      display: block;
+      font-size: 0.72rem;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      color: rgba(232, 243, 255, 0.65);
+      margin-bottom: 4px;
+    }
+
+    .brand strong {
+      font-size: 1.08rem;
+      letter-spacing: -0.03em;
+    }
+
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 18px;
+      border-radius: 999px;
+      border: 0;
+      background: linear-gradient(135deg, var(--cyan), #66e6a2);
+      color: #08111d;
+      font-weight: 800;
+      box-shadow: 0 14px 34px rgba(61, 217, 255, 0.24);
+    }
+
+    main {
+      padding: 34px 0 70px;
+    }
+
+    .hero {
+      margin-bottom: 22px;
+    }
+
+    .hero h1 {
+      margin: 12px 0 0;
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      line-height: 0.98;
+      letter-spacing: -0.05em;
+    }
+
+    .hero p {
+      max-width: 860px;
+      margin: 18px 0 0;
+      line-height: 1.85;
+      color: #b8cadb;
+    }
+
+    .page {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 20px;
+    }
+
+    .panel,
+    .stage {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 30px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel {
+      padding: 20px;
+      color: var(--text);
+    }
+
+    .stack {
+      display: grid;
+      gap: 16px;
+    }
+
+    .group {
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      background: var(--panel-soft);
+    }
+
+    .group h2 {
+      margin: 0 0 12px;
+      font-size: 0.85rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .panel h3 {
+      margin: 0;
+      font-size: 2rem;
+      letter-spacing: -0.05em;
+    }
+
+    .panel .lead {
+      margin-top: 12px;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 16px;
+      padding: 12px 10px;
+      font: inherit;
+      font-weight: 800;
+      color: #fff;
+      cursor: pointer;
+      transition: transform 0.16s ease, filter 0.16s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.04);
+    }
+
+    #startBtn {
+      background: var(--green);
+    }
+
+    #pauseBtn {
+      background: #64748b;
+    }
+
+    #resetBtn {
+      background: var(--red);
+    }
+
+    .control {
+      margin-bottom: 16px;
+    }
+
+    .control:last-child {
+      margin-bottom: 0;
+    }
+
+    .control label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+      font-weight: 700;
+      color: #203246;
+    }
+
+    .value {
+      color: #12739d;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: #0ea5e9;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .stat {
+      padding: 12px 10px;
+      text-align: center;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.75rem;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .stat strong {
+      font-size: 1.35rem;
+      color: #08111d;
+    }
+
+    .formula {
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: #08111d;
+      color: #c9fbff;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.96rem;
+      line-height: 1.7;
+    }
+
+    .legend {
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.94rem;
+      line-height: 1.65;
+    }
+
+    .stage {
+      padding: 18px;
+      color: var(--text);
+    }
+
+    .caption {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .caption h2 {
+      margin: 0;
+      font-size: 1.5rem;
+      letter-spacing: -0.04em;
+    }
+
+    .caption p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.8;
+      max-width: 720px;
+    }
+
+    .status {
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: #f8fbff;
+      color: var(--muted);
+      max-width: 520px;
+      line-height: 1.75;
+    }
+
+    .canvas-wrap {
+      height: 620px;
+      margin-top: 16px;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      overflow: hidden;
+      background: linear-gradient(180deg, #ffffff 0%, #edf4ff 100%);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .footer-note {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 1020px) {
+      .page {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .buttons,
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .caption,
+      .footer-note,
+      .topbar-inner {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .canvas-wrap {
+        height: 520px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="shell">
+      <div class="topbar-inner">
+        <a class="brand" href="index.html">
+          <div class="brand-mark">EB</div>
+          <div>
+            <small>Interactive Demo</small>
+            <strong>Exponential Backoff</strong>
+          </div>
+        </a>
+        <a class="cta" href="index.html">Back To Explanation</a>
+      </div>
+    </div>
+  </div>
+
+  <main class="shell">
+    <section class="hero">
+      <h1>Watch contention, collision, backoff, and recovery.</h1>
+      <p>
+        Use the controls to change how many nodes compete for the channel and how fast the animation runs.
+        The visualization shows successful transmissions, collisions, waiting slots, acknowledgement flow, and the core backoff formula.
+      </p>
+    </section>
+
+    <section class="page">
+      <aside class="panel">
+        <div>
+          <h3>Simulation Lab</h3>
+          <p class="lead">
+            When several nodes send at once, a collision happens. Each sender then waits a random number of slots before trying again.
+          </p>
+        </div>
+
+        <div class="stack">
+          <section class="group">
+            <h2>Controls</h2>
+            <div class="buttons">
+              <button id="startBtn">Start</button>
+              <button id="pauseBtn">Pause</button>
+              <button id="resetBtn">Reset</button>
+            </div>
+          </section>
+
+          <section class="group">
+            <h2>Simulation Settings</h2>
+            <div class="control">
+              <label for="nodesSlider">
+                <span>Number of Nodes</span>
+                <span class="value" id="nodesValue">6</span>
+              </label>
+              <input id="nodesSlider" type="range" min="5" max="8" step="1" value="6" />
+            </div>
+            <div class="control">
+              <label for="speedSlider">
+                <span>Speed</span>
+                <span class="value" id="speedValue">1.0x</span>
+              </label>
+              <input id="speedSlider" type="range" min="0.5" max="2.5" step="0.1" value="1" />
+            </div>
+          </section>
+
+          <section class="group">
+            <h2>Live Stats</h2>
+            <div class="stats">
+              <div class="stat">
+                <span>Collisions</span>
+                <strong id="collisionCount">0</strong>
+              </div>
+              <div class="stat">
+                <span>Successes</span>
+                <strong id="successCount">0</strong>
+              </div>
+              <div class="stat">
+                <span>Slot</span>
+                <strong id="slotCount">0</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="group">
+            <h2>Backoff Formula</h2>
+            <div class="formula">backoff_time = random(0, 2^k - 1) * slot_time</div>
+          </section>
+
+          <section class="group">
+            <h2>Legend</h2>
+            <div class="legend">
+              <div>Blue nodes are idle or waiting to send.</div>
+              <div>Green dots show data moving from sender to receiver.</div>
+              <div>Purple receiver glow means the packet arrived.</div>
+              <div>Orange ACK travels from receiver back to sender.</div>
+              <div>Red flash in the center marks a collision.</div>
+              <div>Orange text above a node shows its countdown slots.</div>
+            </div>
+          </section>
+        </div>
+      </aside>
+
+      <section class="stage">
+        <div class="caption">
+          <div>
+            <h2>Shared Communication Channel</h2>
+            <p>Observe how nodes contend for the medium and how exponential backoff reduces repeated collisions over time.</p>
+          </div>
+          <div class="status" id="statusText">
+            Press Start to begin the animation and watch nodes contend for the channel.
+          </div>
+        </div>
+
+        <div class="canvas-wrap">
+          <canvas id="simulationCanvas"></canvas>
+        </div>
+
+        <div class="footer-note">
+          <div id="runState">Simulation is paused.</div>
+          <div>Higher node counts usually create more collisions.</div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const canvas = document.getElementById("simulationCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const startBtn = document.getElementById("startBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const nodesSlider = document.getElementById("nodesSlider");
+    const speedSlider = document.getElementById("speedSlider");
+    const nodesValue = document.getElementById("nodesValue");
+    const speedValue = document.getElementById("speedValue");
+    const collisionCount = document.getElementById("collisionCount");
+    const successCount = document.getElementById("successCount");
+    const slotCount = document.getElementById("slotCount");
+    const statusText = document.getElementById("statusText");
+    const runState = document.getElementById("runState");
+
+    const SLOT_TIME = 1;
+    const ATTEMPT_PROBABILITY = 0.28;
+
+    const state = {
+      nodes: [],
+      running: false,
+      animationProgress: 0,
+      slotIndex: 0,
+      collisions: 0,
+      successes: 0,
+      lastTimestamp: 0,
+      speedMultiplier: Number(speedSlider.value),
+      currentEvent: "idle",
+      phase: "idle",
+      signals: [],
+      ackInProgress: false,
+      ackSignal: null,
+      collisionFlash: 0,
+      successFlash: 0,
+      successNodeId: null,
+      layout: {
+        width: 0,
+        height: 0,
+        channelY: 0,
+        topY: 0,
+        leftX: 0,
+        rightX: 0,
+        centerX: 0,
+        receiverX: 0,
+        receiverY: 0
+      }
+    };
+
+    function randomInt(maxInclusive) {
+      return Math.floor(Math.random() * (maxInclusive + 1));
+    }
+
+    function createNode(index, total) {
+      const ratio = total === 1 ? 0.5 : index / (total - 1);
+      return {
+        id: index + 1,
+        ratio,
+        collisions: 0,
+        backoffSlots: 0,
+        status: "idle",
+        successGlow: 0,
+        ackGlow: 0
+      };
+    }
+
+    function rebuildNodes() {
+      const total = Number(nodesSlider.value);
+      state.nodes = Array.from({ length: total }, (_, index) => createNode(index, total));
+    }
+
+    function updateReadouts() {
+      nodesValue.textContent = nodesSlider.value;
+      speedValue.textContent = `${Number(speedSlider.value).toFixed(1)}x`;
+      collisionCount.textContent = String(state.collisions);
+      successCount.textContent = String(state.successes);
+      slotCount.textContent = String(state.slotIndex);
+      runState.textContent = state.running ? "Simulation is active." : "Simulation is paused.";
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(rect.width * dpr);
+      canvas.height = Math.floor(rect.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      state.layout.width = rect.width;
+      state.layout.height = rect.height;
+      state.layout.channelY = rect.height * 0.52;
+      state.layout.topY = rect.height * 0.2;
+      state.layout.leftX = 72;
+      state.layout.rightX = rect.width - 72;
+      state.layout.centerX = rect.width / 2;
+      state.layout.receiverX = rect.width / 2;
+      state.layout.receiverY = rect.height * 0.8;
+    }
+
+    function nodeX(node) {
+      return state.layout.leftX + node.ratio * (state.layout.rightX - state.layout.leftX);
+    }
+
+    function resetSimulation() {
+      state.running = false;
+      state.animationProgress = 0;
+      state.slotIndex = 0;
+      state.collisions = 0;
+      state.successes = 0;
+      state.lastTimestamp = 0;
+      state.currentEvent = "idle";
+      state.phase = "idle";
+      state.signals = [];
+      state.ackInProgress = false;
+      state.ackSignal = null;
+      state.collisionFlash = 0;
+      state.successFlash = 0;
+      state.successNodeId = null;
+      state.speedMultiplier = Number(speedSlider.value);
+      rebuildNodes();
+      updateReadouts();
+      statusText.textContent = "Press Start to begin the animation and watch nodes contend for the channel.";
+      resizeCanvas();
+      draw();
+    }
+
+    function beginSuccess(sender) {
+      sender.status = "transmitting";
+      sender.collisions = 0;
+      sender.successGlow = 0.9;
+      state.currentEvent = "success";
+      state.phase = "data";
+      state.successNodeId = sender.id;
+      state.ackInProgress = false;
+      state.ackSignal = null;
+      state.successFlash = 0.9;
+      state.signals = [{
+        nodeId: sender.id,
+        fromX: nodeX(sender),
+        fromY: state.layout.topY + 18,
+        toX: nodeX(sender),
+        toY: state.layout.channelY,
+        color: "#22c55e"
+      }, {
+        nodeId: sender.id,
+        fromX: nodeX(sender),
+        fromY: state.layout.channelY,
+        toX: state.layout.receiverX,
+        toY: state.layout.receiverY - 24,
+        color: "#22c55e"
+      }];
+      statusText.textContent = `Slot ${state.slotIndex}: Node ${sender.id} is transmitting over the shared channel.`;
+    }
+
+    function beginAck(nodeId) {
+      const sender = state.nodes.find((node) => node.id === nodeId);
+      if (!sender) {
+        return;
+      }
+
+      state.phase = "ack";
+      state.ackInProgress = true;
+      state.ackSignal = {
+        nodeId: sender.id,
+        fromX: state.layout.receiverX,
+        fromY: state.layout.receiverY - 24,
+        toX: nodeX(sender),
+        toY: state.layout.topY,
+        label: "ACK",
+        color: "#f97316"
+      };
+      state.signals = [];
+      state.animationProgress = 0;
+      state.successFlash = 1;
+      statusText.textContent = `Slot ${state.slotIndex}: The receiver accepted the packet and is sending an ACK.`;
+    }
+
+    function completeSuccess(nodeId) {
+      const sender = state.nodes.find((node) => node.id === nodeId);
+      if (!sender) {
+        return;
+      }
+
+      sender.status = "idle";
+      sender.ackGlow = 1;
+      sender.successGlow = 1;
+      state.successes += 1;
+      state.phase = "complete";
+      state.currentEvent = "success";
+      state.ackInProgress = false;
+      state.ackSignal = null;
+      state.successNodeId = sender.id;
+      state.successFlash = 0.7;
+      statusText.textContent = `Slot ${state.slotIndex}: ACK reached Node ${sender.id}. Delivery completed successfully.`;
+      updateReadouts();
+    }
+
+    function beginSlot() {
+      state.slotIndex += 1;
+      state.animationProgress = 0;
+      state.signals = [];
+      state.phase = "idle";
+      state.ackInProgress = false;
+      state.ackSignal = null;
+      state.successNodeId = null;
+
+      state.nodes.forEach((node) => {
+        if (node.backoffSlots > 0) {
+          node.backoffSlots -= 1;
+          node.status = "waiting";
+        } else {
+          node.status = "idle";
+        }
+        node.ackGlow = 0;
+      });
+
+      const transmitters = state.nodes.filter((node) => node.backoffSlots === 0 && Math.random() < ATTEMPT_PROBABILITY);
+
+      if (transmitters.length === 0) {
+        state.currentEvent = "idle";
+        statusText.textContent = `Slot ${state.slotIndex}: No node transmits in this slot.`;
+      } else if (transmitters.length === 1) {
+        beginSuccess(transmitters[0]);
+      } else {
+        state.collisions += 1;
+        state.currentEvent = "collision";
+        state.phase = "idle";
+        state.collisionFlash = 1;
+        state.signals = transmitters.map((node) => ({
+          nodeId: node.id,
+          fromX: nodeX(node),
+          fromY: state.layout.topY + 18,
+          toX: state.layout.centerX,
+          toY: state.layout.channelY,
+          color: "#38bdf8"
+        }));
+
+        transmitters.forEach((node) => {
+          node.status = "collision";
+          node.collisions += 1;
+          const k = node.collisions;
+          node.backoffSlots = randomInt(Math.pow(2, k) - 1) * SLOT_TIME;
+        });
+
+        const ids = transmitters.map((node) => node.id).join(", ");
+        statusText.textContent = `Slot ${state.slotIndex}: Collision among Nodes ${ids}. Each one picks a random wait from 0 to 2^k - 1 slots.`;
+      }
+
+      updateReadouts();
+    }
+
+    function drawChannel() {
+      ctx.strokeStyle = "#1f2937";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(state.layout.leftX, state.layout.channelY);
+      ctx.lineTo(state.layout.rightX, state.layout.channelY);
+      ctx.stroke();
+
+      ctx.fillStyle = "#64748b";
+      ctx.font = "600 16px Inter";
+      ctx.textAlign = "left";
+      ctx.fillText("Shared Channel", state.layout.leftX, state.layout.channelY - 18);
+    }
+
+    function drawReceiver() {
+      const x = state.layout.receiverX;
+      const y = state.layout.receiverY;
+      const isReceiving = state.currentEvent === "success"
+        && (state.phase === "ack" || (state.phase === "data" && state.animationProgress > 0.55));
+      const glowAlpha = isReceiving ? 0.5 + state.successFlash * 0.28 : 0.16;
+
+      ctx.strokeStyle = "#94a3b8";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x, state.layout.channelY);
+      ctx.lineTo(x, y - 24);
+      ctx.stroke();
+
+      ctx.fillStyle = `rgba(139, 92, 246, ${glowAlpha})`;
+      ctx.beginPath();
+      ctx.arc(x, y, 35, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#8b5cf6";
+      ctx.beginPath();
+      ctx.arc(x, y, 26, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "700 13px Inter";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("R", x, y);
+
+      ctx.fillStyle = "#0f172a";
+      ctx.font = "600 14px Inter";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText("Receiver", x, y + 50);
+    }
+
+    function drawNode(node) {
+      const x = nodeX(node);
+      const y = state.layout.topY;
+
+      ctx.strokeStyle = "rgba(148, 163, 184, 0.72)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x, y + 24);
+      ctx.lineTo(x, state.layout.channelY);
+      ctx.stroke();
+
+      if (node.successGlow > 0.02) {
+        ctx.strokeStyle = `rgba(34, 197, 94, ${node.successGlow})`;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(x, y, 28, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      if (node.ackGlow > 0.02) {
+        ctx.strokeStyle = `rgba(249, 115, 22, ${node.ackGlow})`;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(x, y, 33, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = node.status === "collision" ? "#ef4444" : "#2563eb";
+      ctx.beginPath();
+      ctx.arc(x, y, 22, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "700 13px Inter";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`${node.id}`, x, y);
+
+      ctx.fillStyle = "#0f172a";
+      ctx.font = "600 14px Inter";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(`Node ${node.id}`, x, y + 44);
+
+      if (node.backoffSlots > 0) {
+        ctx.fillStyle = "#f97316";
+        ctx.font = "700 14px Inter";
+        ctx.fillText(`Waiting: ${node.backoffSlots}`, x, y - 34);
+      } else if (node.status === "transmitting") {
+        ctx.fillStyle = "#16a34a";
+        ctx.font = "700 14px Inter";
+        ctx.fillText("Sending", x, y - 34);
+      }
+    }
+
+    function drawSignals() {
+      state.signals.forEach((signal) => {
+        const x = signal.fromX + (signal.toX - signal.fromX) * state.animationProgress;
+        const y = signal.fromY + (signal.toY - signal.fromY) * state.animationProgress;
+        ctx.fillStyle = signal.color;
+        ctx.beginPath();
+        ctx.arc(x, y, 7, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    function drawAckSignal() {
+      if (!state.ackInProgress || !state.ackSignal) {
+        return;
+      }
+
+      const signal = state.ackSignal;
+      const x = signal.fromX + (signal.toX - signal.fromX) * state.animationProgress;
+      const y = signal.fromY + (signal.toY - signal.fromY) * state.animationProgress;
+
+      ctx.fillStyle = signal.color;
+      ctx.beginPath();
+      ctx.arc(x, y, 7, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#f97316";
+      ctx.font = "700 13px Inter";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(signal.label, x + 12, y - 10);
+    }
+
+    function drawCollisionFlash() {
+      if (state.collisionFlash <= 0.01) {
+        return;
+      }
+
+      const radius = 14 + (1 - state.collisionFlash) * 18;
+      ctx.strokeStyle = `rgba(239, 68, 68, ${state.collisionFlash})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(state.layout.centerX, state.layout.channelY, radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(state.layout.centerX - 12, state.layout.channelY);
+      ctx.lineTo(state.layout.centerX + 12, state.layout.channelY);
+      ctx.moveTo(state.layout.centerX, state.layout.channelY - 12);
+      ctx.lineTo(state.layout.centerX, state.layout.channelY + 12);
+      ctx.stroke();
+    }
+
+    function drawSuccessMarker() {
+      if (state.successFlash <= 0.01 || state.successNodeId === null) {
+        return;
+      }
+
+      const node = state.nodes.find((item) => item.id === state.successNodeId);
+      if (!node) {
+        return;
+      }
+
+      ctx.fillStyle = `rgba(34, 197, 94, ${state.successFlash})`;
+      ctx.beginPath();
+      ctx.arc(nodeX(node), state.layout.channelY, 10, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawFooterText() {
+      ctx.fillStyle = "#64748b";
+      ctx.font = "600 14px Inter";
+      ctx.textAlign = "right";
+      ctx.fillText(`Current Slot: ${state.slotIndex}`, state.layout.rightX, 34);
+
+      ctx.textAlign = "left";
+      ctx.fillText("Green = data, purple = receiver, orange = ACK", state.layout.leftX, state.layout.height - 24);
+    }
+
+    function draw() {
+      const width = state.layout.width;
+      const height = state.layout.height;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const gradient = ctx.createLinearGradient(0, 0, 0, height);
+      gradient.addColorStop(0, "#f8fbff");
+      gradient.addColorStop(1, "#edf4ff");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, width, height);
+
+      drawChannel();
+      drawReceiver();
+      drawSignals();
+      drawAckSignal();
+      drawCollisionFlash();
+      drawSuccessMarker();
+      state.nodes.forEach(drawNode);
+      drawFooterText();
+    }
+
+    function animate(timestamp) {
+      if (!state.lastTimestamp) {
+        state.lastTimestamp = timestamp;
+      }
+
+      const deltaSeconds = Math.min(0.05, (timestamp - state.lastTimestamp) / 1000);
+      state.lastTimestamp = timestamp;
+
+      if (state.running) {
+        state.animationProgress += deltaSeconds * state.speedMultiplier;
+        if (state.animationProgress >= 1) {
+          if (state.currentEvent === "success" && state.phase === "data" && state.successNodeId !== null) {
+            beginAck(state.successNodeId);
+          } else if (state.currentEvent === "success" && state.phase === "ack" && state.successNodeId !== null) {
+            completeSuccess(state.successNodeId);
+            state.animationProgress = 0;
+          } else {
+            beginSlot();
+          }
+        }
+      }
+
+      state.collisionFlash = Math.max(0, state.collisionFlash - deltaSeconds * 2.2);
+      state.successFlash = Math.max(0, state.successFlash - deltaSeconds * 2.4);
+      state.nodes.forEach((node) => {
+        node.successGlow = Math.max(0, node.successGlow - deltaSeconds * 1.7);
+        node.ackGlow = Math.max(0, node.ackGlow - deltaSeconds * 2.1);
+      });
+
+      draw();
+      requestAnimationFrame(animate);
+    }
+
+    startBtn.addEventListener("click", () => {
+      state.running = true;
+      state.lastTimestamp = 0;
+      statusText.textContent = "Simulation running. Watch nodes attempt, collide, back off, and retry.";
+      updateReadouts();
+    });
+
+    pauseBtn.addEventListener("click", () => {
+      state.running = false;
+      statusText.textContent = "Simulation paused. Press Start to continue from the current state.";
+      updateReadouts();
+    });
+
+    resetBtn.addEventListener("click", resetSimulation);
+
+    nodesSlider.addEventListener("input", () => {
+      updateReadouts();
+      resetSimulation();
+    });
+
+    speedSlider.addEventListener("input", () => {
+      state.speedMultiplier = Number(speedSlider.value);
+      updateReadouts();
+    });
+
+    window.addEventListener("resize", () => {
+      resizeCanvas();
+      draw();
+    });
+
+    resetSimulation();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
