@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Exponential Backoff Algorithm Simulation</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel: #f8fafc;
+      --border: #d8e1ea;
+      --text: #102033;
+      --muted: #5d6b7d;
+      --blue: #2563eb;
+      --green: #16a34a;
+      --red: #dc2626;
+      --orange: #ea580c;
+      --purple: #7c3aed;
+      --line: #1f2937;
+      --shadow: 0 18px 38px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .page {
+      width: min(1200px, calc(100vw - 32px));
+      margin: 20px auto;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 18px;
+    }
+
+    .panel,
+    .stage {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.9rem;
+      line-height: 1.1;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .group {
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--panel);
+    }
+
+    .group h2 {
+      margin: 0 0 12px;
+      font-size: 0.95rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 11px 10px;
+      font: inherit;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    #startBtn {
+      background: var(--green);
+    }
+
+    #pauseBtn {
+      background: #64748b;
+    }
+
+    #resetBtn {
+      background: var(--red);
+    }
+
+    .control {
+      margin-bottom: 14px;
+    }
+
+    .control:last-child {
+      margin-bottom: 0;
+    }
+
+    .control label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .value {
+      color: var(--blue);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--blue);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .stat {
+      padding: 12px 10px;
+      text-align: center;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .stat strong {
+      font-size: 1.25rem;
+    }
+
+    .formula {
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: #eef4ff;
+      color: var(--text);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.95rem;
+    }
+
+    .legend {
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .stage {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .caption {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .caption h2 {
+      margin: 0;
+      font-size: 1.15rem;
+    }
+
+    .caption p {
+      max-width: 560px;
+    }
+
+    .canvas-wrap {
+      height: 620px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    @media (max-width: 980px) {
+      .page {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .buttons,
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .canvas-wrap {
+        height: 520px;
+      }
+
+      .caption {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <aside class="panel">
+      <div>
+        <h1>Exponential Backoff</h1>
+        <p>
+          Nodes compete to use one shared communication channel. When several
+          nodes transmit together, a collision happens and each waits for a
+          random backoff interval before trying again.
+        </p>
+      </div>
+
+      <section class="group">
+        <h2>Controls</h2>
+        <div class="buttons">
+          <button id="startBtn">Start</button>
+          <button id="pauseBtn">Pause</button>
+          <button id="resetBtn">Reset</button>
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>Simulation Settings</h2>
+        <div class="control">
+          <label for="nodesSlider">
+            <span>Number of Nodes</span>
+            <span class="value" id="nodesValue">6</span>
+          </label>
+          <input id="nodesSlider" type="range" min="5" max="8" step="1" value="6" />
+        </div>
+        <div class="control">
+          <label for="speedSlider">
+            <span>Speed</span>
+            <span class="value" id="speedValue">1.0x</span>
+          </label>
+          <input id="speedSlider" type="range" min="0.5" max="2.5" step="0.1" value="1" />
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>Live Stats</h2>
+        <div class="stats">
+          <div class="stat">
+            <span>Collisions</span>
+            <strong id="collisionCount">0</strong>
+          </div>
+          <div class="stat">
+            <span>Successes</span>
+            <strong id="successCount">0</strong>
+          </div>
+          <div class="stat">
+            <span>Slot</span>
+            <strong id="slotCount">0</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>Backoff Rule</h2>
+        <div class="formula">backoff_time = random(0, 2^k - 1) * slot_time</div>
+      </section>
+
+      <section class="group">
+        <h2>Legend</h2>
+        <div class="legend">
+          <div>Blue nodes are idle or waiting to send.</div>
+          <div>Green dots show data moving from sender to receiver.</div>
+          <div>Purple receiver glows when a packet arrives.</div>
+          <div>Orange ACK returns from the receiver to the sender.</div>
+          <div>Red flash at the center marks a collision.</div>
+          <div>Orange text above a node shows its countdown slots.</div>
+        </div>
+      </section>
+    </aside>
+
+    <main class="stage">
+      <div class="caption">
+        <div>
+          <h2>Shared Communication Channel</h2>
+          <p id="statusText">
+            Press Start to begin the animation and watch nodes contend for the channel.
+          </p>
+        </div>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="simulationCanvas"></canvas>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("simulationCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const startBtn = document.getElementById("startBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const nodesSlider = document.getElementById("nodesSlider");
+    const speedSlider = document.getElementById("speedSlider");
+    const nodesValue = document.getElementById("nodesValue");
+    const speedValue = document.getElementById("speedValue");
+    const collisionCount = document.getElementById("collisionCount");
+    const successCount = document.getElementById("successCount");
+    const slotCount = document.getElementById("slotCount");
+    const statusText = document.getElementById("statusText");
+
+    const SLOT_TIME = 1;
+    const ATTEMPT_PROBABILITY = 0.28;
+
+    const state = {
+      nodes: [],
+      running: false,
+      animationProgress: 0,
+      slotIndex: 0,
+      collisions: 0,
+      successes: 0,
+      lastTimestamp: 0,
+      speedMultiplier: Number(speedSlider.value),
+      currentEvent: "idle",
+      phase: "idle",
+      signals: [],
+      ackInProgress: false,
+      ackSignal: null,
+      collisionFlash: 0,
+      successFlash: 0,
+      successNodeId: null,
+      layout: {
+        width: 0,
+        height: 0,
+        channelY: 0,
+        topY: 0,
+        leftX: 0,
+        rightX: 0,
+        centerX: 0,
+        receiverX: 0,
+        receiverY: 0
+      }
+    };
+
+    function randomInt(maxInclusive) {
+      return Math.floor(Math.random() * (maxInclusive + 1));
+    }
+
+    function createNode(index, total) {
+      const ratio = total === 1 ? 0.5 : index / (total - 1);
+      return {
+        id: index + 1,
+        ratio,
+        collisions: 0,
+        backoffSlots: 0,
+        status: "idle",
+        successGlow: 0,
+        ackGlow: 0
+      };
+    }
+
+    function rebuildNodes() {
+      const total = Number(nodesSlider.value);
+      state.nodes = Array.from({ length: total }, (_, index) => createNode(index, total));
+    }
+
+    function resetSimulation() {
+      state.running = false;
+      state.animationProgress = 0;
+      state.slotIndex = 0;
+      state.collisions = 0;
+      state.successes = 0;
+      state.lastTimestamp = 0;
+      state.currentEvent = "idle";
+      state.phase = "idle";
+      state.signals = [];
+      state.ackInProgress = false;
+      state.ackSignal = null;
+      state.collisionFlash = 0;
+      state.successFlash = 0;
+      state.successNodeId = null;
+      state.speedMultiplier = Number(speedSlider.value);
+      rebuildNodes();
+      updateReadouts();
+      statusText.textContent = "Press Start to begin the animation and watch nodes contend for the channel.";
+      resizeCanvas();
+      draw();
+    }
+
+    function updateReadouts() {
+      nodesValue.textContent = nodesSlider.value;
+      speedValue.textContent = `${Number(speedSlider.value).toFixed(1)}x`;
+      collisionCount.textContent = String(state.collisions);
+      successCount.textContent = String(state.successes);
+      slotCount.textContent = String(state.slotIndex);
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(rect.width * dpr);
+      canvas.height = Math.floor(rect.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      state.layout.width = rect.width;
+      state.layout.height = rect.height;
+      state.layout.channelY = rect.height * 0.5;
+      state.layout.topY = rect.height * 0.24;
+      state.layout.leftX = 70;
+      state.layout.rightX = rect.width - 70;
+      state.layout.centerX = rect.width / 2;
+      state.layout.receiverX = rect.width / 2;
+      state.layout.receiverY = rect.height * 0.77;
+    }
+
+    function nodeX(node) {
+      return state.layout.leftX + node.ratio * (state.layout.rightX - state.layout.leftX);
+    }
+
+    function beginSuccess(sender) {
+      // A successful send is shown as a forward data phase followed by an ACK phase.
+      sender.status = "transmitting";
+      sender.collisions = 0;
+      sender.successGlow = 0.9;
+      state.currentEvent = "success";
+      state.phase = "data";
+      state.successNodeId = sender.id;
+      state.ackInProgress = false;
+      state.ackSignal = null;
+      state.successFlash = 0.9;
+      state.signals = [{
+        nodeId: sender.id,
+        fromX: nodeX(sender),
+        fromY: state.layout.topY + 18,
+        toX: nodeX(sender),
+        toY: state.layout.channelY,
+        color: "#16a34a"
+      }, {
+        nodeId: sender.id,
+        fromX: nodeX(sender),
+        fromY: state.layout.channelY,
+        toX: state.layout.receiverX,
+        toY: state.layout.receiverY - 24,
+        color: "#16a34a"
+      }];
+      statusText.textContent = `Slot ${state.slotIndex}: Node ${sender.id} transmitting...`;
+    }
+
+    function beginAck(nodeId) {
+      const sender = state.nodes.find((node) => node.id === nodeId);
+      if (!sender) {
+        return;
+      }
+
+      state.phase = "ack";
+      state.ackInProgress = true;
+      state.ackSignal = {
+        nodeId: sender.id,
+        fromX: state.layout.receiverX,
+        fromY: state.layout.receiverY - 24,
+        toX: nodeX(sender),
+        toY: state.layout.topY,
+        label: "ACK",
+        color: "#f97316"
+      };
+      state.signals = [];
+      state.animationProgress = 0;
+      state.successFlash = 1;
+      statusText.textContent = `Slot ${state.slotIndex}: Receiver got packet...`;
+    }
+
+    function completeSuccess(nodeId) {
+      const sender = state.nodes.find((node) => node.id === nodeId);
+      if (!sender) {
+        return;
+      }
+
+      sender.status = "idle";
+      sender.ackGlow = 1;
+      sender.successGlow = 1;
+      state.successes += 1;
+      state.phase = "complete";
+      state.currentEvent = "success";
+      state.ackInProgress = false;
+      state.ackSignal = null;
+      state.successNodeId = sender.id;
+      state.successFlash = 0.7;
+      statusText.textContent = `Slot ${state.slotIndex}: ACK sent back to Node ${sender.id}. Packet delivery complete.`;
+      updateReadouts();
+    }
+
+    function beginSlot() {
+      state.slotIndex += 1;
+      state.animationProgress = 0;
+      state.signals = [];
+      state.phase = "idle";
+      state.ackInProgress = false;
+      state.ackSignal = null;
+      state.successNodeId = null;
+
+      state.nodes.forEach((node) => {
+        if (node.backoffSlots > 0) {
+          node.backoffSlots -= 1;
+          node.status = "waiting";
+          node.ackGlow = 0;
+        } else {
+          node.status = "idle";
+          node.ackGlow = 0;
+        }
+      });
+
+      const transmitters = state.nodes.filter((node) => node.backoffSlots === 0 && Math.random() < ATTEMPT_PROBABILITY);
+
+      if (transmitters.length === 0) {
+        state.currentEvent = "idle";
+        statusText.textContent = `Slot ${state.slotIndex}: No node transmits in this slot.`;
+      } else if (transmitters.length === 1) {
+        beginSuccess(transmitters[0]);
+      } else {
+        state.collisions += 1;
+        state.currentEvent = "collision";
+        state.phase = "idle";
+        state.collisionFlash = 1;
+        state.signals = transmitters.map((node) => ({
+          nodeId: node.id,
+          fromX: nodeX(node),
+          fromY: state.layout.topY + 18,
+          toX: state.layout.centerX,
+          toY: state.layout.channelY,
+          color: "#2563eb"
+        }));
+
+        transmitters.forEach((node) => {
+          node.status = "collision";
+          node.collisions += 1;
+          const k = node.collisions;
+          const backoffSlots = randomInt(Math.pow(2, k) - 1) * SLOT_TIME;
+          node.backoffSlots = backoffSlots;
+        });
+
+        const ids = transmitters.map((node) => node.id).join(", ");
+        statusText.textContent = `Slot ${state.slotIndex}: Collision among Nodes ${ids}. Each node selects a random backoff using 0 to 2^k - 1 slots.`;
+      }
+
+      updateReadouts();
+    }
+
+    function drawChannel() {
+      ctx.strokeStyle = "#1f2937";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(state.layout.leftX, state.layout.channelY);
+      ctx.lineTo(state.layout.rightX, state.layout.channelY);
+      ctx.stroke();
+
+      ctx.fillStyle = "#475569";
+      ctx.font = "600 16px Segoe UI";
+      ctx.textAlign = "left";
+      ctx.fillText("Shared Channel", state.layout.leftX, state.layout.channelY - 18);
+    }
+
+    function drawReceiver() {
+      const x = state.layout.receiverX;
+      const y = state.layout.receiverY;
+      const isReceiving = state.currentEvent === "success"
+        && (state.phase === "ack" || (state.phase === "data" && state.animationProgress > 0.55));
+      const glowAlpha = isReceiving ? 0.45 + state.successFlash * 0.35 : 0.12;
+
+      ctx.strokeStyle = "#cbd5e1";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x, state.layout.channelY);
+      ctx.lineTo(x, y - 24);
+      ctx.stroke();
+
+      ctx.fillStyle = `rgba(124, 58, 237, ${glowAlpha})`;
+      ctx.beginPath();
+      ctx.arc(x, y, 31, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#7c3aed";
+      ctx.beginPath();
+      ctx.arc(x, y, 24, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "700 13px Segoe UI";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("R", x, y);
+
+      ctx.fillStyle = "#102033";
+      ctx.font = "600 14px Segoe UI";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText("Receiver", x, y + 48);
+    }
+
+    function drawNode(node) {
+      const x = nodeX(node);
+      const y = state.layout.topY;
+
+      ctx.strokeStyle = "#cbd5e1";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x, y + 24);
+      ctx.lineTo(x, state.layout.channelY);
+      ctx.stroke();
+
+      if (node.successGlow > 0.02) {
+        ctx.strokeStyle = `rgba(22, 163, 74, ${node.successGlow})`;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(x, y, 28, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      if (node.ackGlow > 0.02) {
+        ctx.strokeStyle = `rgba(249, 115, 22, ${node.ackGlow})`;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(x, y, 33, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = node.status === "collision" ? "#ef4444" : "#2563eb";
+      ctx.beginPath();
+      ctx.arc(x, y, 22, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "700 13px Segoe UI";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`${node.id}`, x, y);
+
+      ctx.fillStyle = "#102033";
+      ctx.font = "600 14px Segoe UI";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(`Node ${node.id}`, x, y + 44);
+
+      if (node.backoffSlots > 0) {
+        ctx.fillStyle = "#ea580c";
+        ctx.font = "700 14px Segoe UI";
+        ctx.fillText(`Waiting: ${node.backoffSlots}`, x, y - 34);
+      } else if (node.status === "transmitting") {
+        ctx.fillStyle = "#16a34a";
+        ctx.font = "700 14px Segoe UI";
+        ctx.fillText("Sending", x, y - 34);
+      }
+    }
+
+    function drawSignals() {
+      state.signals.forEach((signal) => {
+        const x = signal.fromX + (signal.toX - signal.fromX) * state.animationProgress;
+        const y = signal.fromY + (signal.toY - signal.fromY) * state.animationProgress;
+        ctx.fillStyle = signal.color;
+        ctx.beginPath();
+        ctx.arc(x, y, 7, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    function drawAckSignal() {
+      if (!state.ackInProgress || !state.ackSignal) {
+        return;
+      }
+
+      const signal = state.ackSignal;
+      const x = signal.fromX + (signal.toX - signal.fromX) * state.animationProgress;
+      const y = signal.fromY + (signal.toY - signal.fromY) * state.animationProgress;
+
+      ctx.fillStyle = signal.color;
+      ctx.beginPath();
+      ctx.arc(x, y, 7, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#f97316";
+      ctx.font = "700 13px Segoe UI";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(signal.label, x + 12, y - 10);
+    }
+
+    function drawCollisionFlash() {
+      if (state.collisionFlash <= 0.01) {
+        return;
+      }
+
+      const radius = 14 + (1 - state.collisionFlash) * 18;
+      ctx.strokeStyle = `rgba(220, 38, 38, ${state.collisionFlash})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(state.layout.centerX, state.layout.channelY, radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(state.layout.centerX - 12, state.layout.channelY);
+      ctx.lineTo(state.layout.centerX + 12, state.layout.channelY);
+      ctx.moveTo(state.layout.centerX, state.layout.channelY - 12);
+      ctx.lineTo(state.layout.centerX, state.layout.channelY + 12);
+      ctx.stroke();
+    }
+
+    function drawSuccessMarker() {
+      if (state.successFlash <= 0.01 || state.successNodeId === null) {
+        return;
+      }
+
+      const node = state.nodes.find((item) => item.id === state.successNodeId);
+      if (!node) {
+        return;
+      }
+
+      const x = nodeX(node);
+      ctx.fillStyle = `rgba(22, 163, 74, ${state.successFlash})`;
+      ctx.beginPath();
+      ctx.arc(x, state.layout.channelY, 10, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawFooterText() {
+      ctx.fillStyle = "#475569";
+      ctx.font = "600 14px Segoe UI";
+      ctx.textAlign = "right";
+      ctx.fillText(`Current Slot: ${state.slotIndex}`, state.layout.rightX, 34);
+
+      ctx.textAlign = "left";
+      ctx.fillText("Green = data, purple = receiver, orange = ACK", state.layout.leftX, state.layout.height - 24);
+    }
+
+    function draw() {
+      const width = state.layout.width;
+      const height = state.layout.height;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+
+      drawChannel();
+      drawReceiver();
+      drawSignals();
+      drawAckSignal();
+      drawCollisionFlash();
+      drawSuccessMarker();
+      state.nodes.forEach(drawNode);
+      drawFooterText();
+    }
+
+    function animate(timestamp) {
+      if (!state.lastTimestamp) {
+        state.lastTimestamp = timestamp;
+      }
+
+      const deltaSeconds = Math.min(0.05, (timestamp - state.lastTimestamp) / 1000);
+      state.lastTimestamp = timestamp;
+
+      if (state.running) {
+        state.animationProgress += deltaSeconds * state.speedMultiplier;
+        if (state.animationProgress >= 1) {
+          if (state.currentEvent === "success" && state.phase === "data" && state.successNodeId !== null) {
+            beginAck(state.successNodeId);
+          } else if (state.currentEvent === "success" && state.phase === "ack" && state.successNodeId !== null) {
+            completeSuccess(state.successNodeId);
+            state.animationProgress = 0;
+          } else {
+            beginSlot();
+          }
+        }
+      }
+
+      state.collisionFlash = Math.max(0, state.collisionFlash - deltaSeconds * 2.2);
+      state.successFlash = Math.max(0, state.successFlash - deltaSeconds * 2.4);
+      state.nodes.forEach((node) => {
+        node.successGlow = Math.max(0, node.successGlow - deltaSeconds * 1.7);
+        node.ackGlow = Math.max(0, node.ackGlow - deltaSeconds * 2.1);
+      });
+
+      draw();
+      requestAnimationFrame(animate);
+    }
+
+    startBtn.addEventListener("click", () => {
+      state.running = true;
+      statusText.textContent = "Simulation running. Watch the nodes attempt, collide, wait, and retry.";
+    });
+
+    pauseBtn.addEventListener("click", () => {
+      state.running = false;
+      statusText.textContent = "Simulation paused. Press Start to continue from the current state.";
+    });
+
+    resetBtn.addEventListener("click", resetSimulation);
+
+    nodesSlider.addEventListener("input", () => {
+      updateReadouts();
+      resetSimulation();
+    });
+
+    speedSlider.addEventListener("input", () => {
+      state.speedMultiplier = Number(speedSlider.value);
+      updateReadouts();
+    });
+
+    window.addEventListener("resize", () => {
+      resizeCanvas();
+      draw();
+    });
+
+    resetSimulation();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
