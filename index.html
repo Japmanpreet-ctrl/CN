@@ -145,6 +145,9 @@
       gap: 28px;
       align-items: center;
       min-height: 72vh;
+      position: relative;
+      z-index: 1;
+      margin-bottom: 110px;
     }
 
     .eyebrow {
@@ -257,13 +260,23 @@
     }
 
     .section {
-      margin-top: 34px;
+      margin-top: 0;
       padding: 34px;
       border-radius: var(--radius-lg);
       border: 1px solid rgba(201, 216, 231, 0.7);
       background: rgba(255, 255, 255, 0.92);
       color: #0f1c2b;
       box-shadow: 0 24px 70px rgba(15, 23, 42, 0.08);
+    }
+
+    #concept {
+      margin-top: 0;
+    }
+
+    #concept,
+    #formula,
+    #steps {
+      scroll-margin-top: 120px;
     }
 
     .section h2 {
