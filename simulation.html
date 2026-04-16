@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Exponential Backoff Simulation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #06111f;
@@ -31,12 +34,16 @@
     body {
       margin: 0;
       min-height: 100vh;
-      font-family: Inter, "Segoe UI", sans-serif;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
       color: var(--white);
       background:
         radial-gradient(circle at top, rgba(48, 211, 255, 0.15), transparent 22%),
         radial-gradient(circle at 82% 16%, rgba(34, 197, 94, 0.12), transparent 18%),
         linear-gradient(180deg, #05101d 0%, #0d1a2d 38%, #eff6ff 38%, #eaf3ff 100%);
+    }
+
+    h1, h2, h3, h4, strong, .brand-mark, .cta, button {
+      font-family: 'Outfit', sans-serif;
     }
 
     a {
@@ -143,7 +150,8 @@
 
     .panel,
     .stage {
-      background: var(--panel);
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(20px);
       border: 1px solid var(--border);
       border-radius: 30px;
       box-shadow: var(--shadow);
@@ -462,6 +470,13 @@
           </section>
 
           <section class="group">
+            <h2>Activity Log</h2>
+            <div id="activityLog" style="height: 180px; overflow-y: auto; font-size: 0.85rem; display: flex; flex-direction: column-reverse; gap: 8px;">
+              <div style="color: var(--muted);">System ready. Press Start.</div>
+            </div>
+          </section>
+
+          <section class="group">
             <h2>Legend</h2>
             <div class="legend">
               <div>Blue nodes are idle or waiting to send.</div>
@@ -496,7 +511,24 @@
         </div>
       </section>
     </section>
-  </main>
+  <footer class="site-footer" style="padding: 80px 0; background: #f8fbff; border-top: 1px solid rgba(0, 0, 0, 0.06); text-align: center; color: #475569;">
+    <div class="shell" style="max-width: 1200px; margin: 0 auto; padding: 0 20px;">
+      <h3 style="margin: 0 0 16px; font-size: 1.8rem; color: #1e293b; letter-spacing: -0.02em; font-family: 'Outfit', sans-serif;">About the Project</h3>
+      <p style="max-width: 680px; margin: 0 auto 40px; line-height: 1.8; font-size: 1.1rem; color: #64748b;">
+        This interactive visualizer was developed as a collaborative effort to simplify complex networking concepts.
+        Our goal is to make learning intuitive through visualization.
+      </p>
+      <div class="team" style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; font-weight: 700; font-size: 1.2rem; color: #0891b2; font-family: 'Outfit', sans-serif;">
+        <span style="padding: 8px 16px; background: #ecfeff; border-radius: 99px;">Arshpreet</span>
+        <span style="padding: 8px 16px; background: #ecfeff; border-radius: 99px;">Ishika</span>
+        <span style="padding: 8px 16px; background: #ecfeff; border-radius: 99px;">Japmanpreet</span>
+        <span style="padding: 8px 16px; background: #ecfeff; border-radius: 99px;">Prachi</span>
+      </div>
+      <div class="footer-copy" style="margin-top: 50px; font-size: 0.85rem; color: #94a3b8;">
+        &copy; 2024 Exponential Backoff Visualizer &bull; Computer Science Project
+      </div>
+    </div>
+  </footer>
 
   <script>
     const canvas = document.getElementById("simulationCanvas");
@@ -514,6 +546,19 @@
     const slotCount = document.getElementById("slotCount");
     const statusText = document.getElementById("statusText");
     const runState = document.getElementById("runState");
+    const activityLog = document.getElementById("activityLog");
+
+    function addLog(msg, color = "var(--muted)") {
+      const entry = document.createElement("div");
+      entry.style.color = color;
+      entry.style.padding = "4px 0";
+      entry.style.lineHeight = "1.4";
+      entry.innerHTML = `<span style="opacity: 0.4; font-size: 0.7rem; font-weight: 800; text-transform: uppercase;">[Slot ${state.slotIndex}]</span> <span style="font-weight: 500;">${msg}</span>`;
+      activityLog.prepend(entry);
+      if (activityLog.children.length > 30) {
+        activityLog.removeChild(activityLog.lastChild);
+      }
+    }
 
     const SLOT_TIME = 1;
     const ATTEMPT_PROBABILITY = 0.28;
@@ -620,6 +665,7 @@
       rebuildNodes();
       updateReadouts();
       statusText.textContent = "Press Start to begin the animation and watch nodes contend for the channel.";
+      activityLog.innerHTML = `<div style="color: var(--muted);">System ready. Press Start.</div>`;
       resizeCanvas();
       draw();
     }
@@ -650,6 +696,7 @@
         color: "#22c55e"
       }];
       statusText.textContent = `Slot ${state.slotIndex}: Node ${sender.id} is transmitting over the shared channel.`;
+      addLog(`Node ${sender.id} transmitting`, "var(--green)");
     }
 
     function beginAck(nodeId) {
@@ -673,6 +720,7 @@
       state.animationProgress = 0;
       state.successFlash = 1;
       statusText.textContent = `Slot ${state.slotIndex}: The receiver accepted the packet and is sending an ACK.`;
+      addLog(`Receiver sending ACK to Node ${sender.id}`, "var(--orange)");
     }
 
     function completeSuccess(nodeId) {
@@ -692,6 +740,7 @@
       state.successNodeId = sender.id;
       state.successFlash = 0.7;
       statusText.textContent = `Slot ${state.slotIndex}: ACK reached Node ${sender.id}. Delivery completed successfully.`;
+      addLog(`Node ${sender.id} delivery successful ✅`, "var(--green)");
       updateReadouts();
     }
 
@@ -744,6 +793,7 @@
 
         const ids = transmitters.map((node) => node.id).join(", ");
         statusText.textContent = `Slot ${state.slotIndex}: Collision among Nodes ${ids}. Each one picks a random wait from 0 to 2^k - 1 slots.`;
+        addLog(`Collision! Nodes ${ids} backing off`, "var(--red)");
       }
 
       updateReadouts();
